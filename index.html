@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SALAM E WAZWAN Online Order</title>
+  
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDVij2UJ47bHt5y68X_7qLhZbudWlDZphA",
+      authDomain: "hotel-web-app-38ac0.firebaseapp.com",
+      projectId: "hotel-web-app-38ac0",
+      storageBucket: "hotel-web-app-38ac0.firebasestorage.app",
+      messagingSenderId: "1086718526183",
+      appId: "1:1086718526183:web:f02cf152781a3487889842"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const menuCol = collection(db, "menu");
+    const settingsDoc = doc(db, "settings", "adminConfig");
+
+    window.currentAdminPIN = "1234";
+
+    async function initApp() {
+        const snap = await getDoc(settingsDoc);
+        if (snap.exists()) window.currentAdminPIN = snap.data().pin;
+    }
+    initApp();
+
+    onSnapshot(menuCol, (snapshot) => {
+      const menuGrid = document.getElementById("menuGrid");
+      const drop = document.getElementById("deleteDropdown");
+      menuGrid.innerHTML = ""; drop.innerHTML = "";
+      
+      snapshot.forEach((itemDoc) => {
+        const item = itemDoc.data();
+        const id = itemDoc.id;
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <span class="badge ${item.type}">${item.type==='available'?'Available Today':'Pre-Order'}</span>
+          <h3>${item.name}</h3>
+          <div class="price">₹${item.price}</div>
+          <input type="number" id="qty-${id}" placeholder="Qty" min="1" value="1" />
+          <button onclick="addToCart('${item.name.replace(/'/g, "\\'")}', ${item.price}, ${item.type==='available'}, 'qty-${id}')">Add to Order</button>
+        `;
+        menuGrid.appendChild(card);
+        drop.add(new Option(item.name, id));
+      });
+    });
+
+    window.addNewItem = async () => {
+      const name = document.getElementById("newItemName").value;
+      const price = parseInt(document.getElementById("newItemPrice").value);
+      const type = document.getElementById("newItemType").value;
+      if (!name || !price) return alert("Please fill all fields");
+      await addDoc(menuCol, { name, price, type, createdAt: Date.now() });
+      alert("✅ Item added to database!");
+      document.getElementById("newItemName").value = "";
+      document.getElementById("newItemPrice").value = "";
+    };
+
+    window.deleteSelectedItem = async () => {
+      const id = document.getElementById("deleteDropdown").value;
+      if (id && confirm("Delete from database permanently?")) {
+        await deleteDoc(doc(db, "menu", id));
+        alert("🗑️ Item removed!");
+      }
+    };
+
+    window.updatePIN = async () => {
+        const newPin = document.getElementById("newAdminPin").value;
+        if(newPin.length < 4) return alert("PIN should be at least 4 digits");
+        await setDoc(settingsDoc, { pin: newPin });
+        window.currentAdminPIN = newPin;
+        alert("🔐 Password updated successfully!");
+        document.getElementById("newAdminPin").value = "";
+    };
+  </script>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 0; background: linear-gradient(rgba(255,247,237,0.92), rgba(255,247,237,0.92)); background-size: cover; background-position: center; background-attachment: fixed; color: #333; padding-bottom: 60px; }
+    
+    header { background: #ea580c; color: white; padding: 25px 18px; text-align: center; }
+    header h1 { margin: 0; font-size: 2.2em; letter-spacing: 1px; }
+    
+    .shop-info-bar { 
+      background: #16a34a; 
+      color: white; 
+      text-align: center; 
+      padding: 15px; 
+      font-size: 14px; 
+      line-height: 1.6; 
+      border-bottom: 4px solid #14532d;
+    }
+    
+    .highlight { background: yellow; color: black; font-weight: bold; padding: 10px; border-radius: 10px; margin-top: 10px; display: inline-block; }
+    .container { max-width: 1000px; margin: auto; padding: 20px; }
+    h2 { text-align: center; margin-top: 30px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 20px; }
+    .card { background: white; border-radius: 14px; padding: 16px; border: 1px solid #ddd; box-shadow: 0 2px 6px rgba(0,0,0,0.08); display: flex; flex-direction: column; justify-content: space-between; }
+    .price { font-weight: bold; margin-top: 6px; font-size: 1.1em; color: #ea580c; }
+    .badge { font-size: 12px; padding: 4px 8px; border-radius: 8px; display: inline-block; margin-bottom: 8px; font-weight: bold; }
+    .available { background: #16a34a; color: white; }
+    .preorder { background: #dc2626; color: white; }
+    input, textarea, select { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 10px; border: 1px solid #ccc; font-size: 14px; box-sizing: border-box; }
+    .delivery-options { display: flex; justify-content: center; gap: 20px; margin: 15px 0; }
+    .delivery-options label { display: flex; align-items: center; gap: 5px; font-weight: bold; }
+    button { background: #ea580c; color: white; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-size: 14px; margin-top: 10px; font-weight: bold; transition: 0.2s; }
+    button:hover { background: #c2410c; }
+    #adminToggleBtn { position: fixed; bottom: 20px; left: 20px; width: 45px; height: 45px; background: #ea580c; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 8px rgba(0,0,0,0.3); z-index: 2000; cursor: pointer; }
+    .admin-panel { position: fixed; bottom: 75px; left: 20px; width: 260px; max-height: 80vh; overflow-y: auto; background: white; padding: 15px; border-radius: 12px; border: 2px solid #ea580c; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000; display: none; }
+    .status-box { position: fixed; top: 10px; right: 10px; background: white; padding: 10px 14px; border-radius: 12px; border: 2px solid #16a34a; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1000; font-size: 13px; }
+    footer { background: #ea580c; color: white; text-align: center; padding: 15px; margin-top: 40px; }
+    .section-white { background: white; padding: 20px; border-radius: 12px; border: 1px solid #ddd; margin-top: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .empty-msg { text-align: center; color: #888; padding: 20px; font-style: italic; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>SALAM E WAZWAN</h1>
+  <div class="highlight">Authentic Kashmiri Taste</div>
+</header>
+
+<div class="shop-info-bar">
+    <strong>📍 Sulipora Dangerpora Near BDO Office</strong><br>
+    Prop: Mushtaq Ahmad Ganaie (Waza) | 📞 7889449964 / 6005715105<br>
+    <em>"We provide delicious authentic kashur wazwan with authentic taste"</em>
+</div>
+
+<div class="status-box">Timing: 09:00am - 9:00pm</div>
+
+<div id="adminToggleBtn" onclick="toggleAdminPanel()">
+    <i data-lucide="lock"></i>
+</div>
+
+<div class="admin-panel" id="adminPanel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <strong>Admin Control</strong>
+        <span onclick="toggleAdminPanel()" style="cursor:pointer; color:red; font-weight:bold;">✕</span>
+    </div>
+    <div id="loginSection">
+      <input type="password" id="adminPassword" placeholder="Admin PIN" />
+      <button onclick="openAdminPanel()" style="width:100%;"><i data-lucide="key" style="width:14px;"></i> Login</button>
+    </div>
+    <div id="adminControls" style="display:none;">
+      <button onclick="handleLogout()" style="background:#444; width:100%; margin-bottom:10px;">Logout</button>
+      <p style="font-size:12px; font-weight:bold; margin-bottom:5px;">Add New Dish:</p>
+      <input type="text" id="newItemName" placeholder="Dish Name">
+      <input type="number" id="newItemPrice" placeholder="Price ₹">
+      <select id="newItemType">
+        <option value="available">Available Today</option>
+        <option value="preorder">Pre-Order Only</option>
+      </select>
+      <button onclick="addNewItem()" style="background:#16a34a; width:100%;">Save to DB</button>
+      <hr>
+      <p style="font-size:12px; font-weight:bold; margin-bottom:5px;">Manage PIN:</p>
+      <input type="password" id="newAdminPin" placeholder="New PIN">
+      <button onclick="updatePIN()" style="background:#333; width:100%;">Change PIN</button>
+      <hr>
+      <select id="deleteDropdown" style="margin-top:5px;"></select>
+      <button onclick="deleteSelectedItem()" style="background:#dc2626; width:100%;">Delete Selected</button>
+    </div>
+</div>
+
+<div class="container">
+  <div class="section-white">
+    <h2>Enter Your Details</h2>
+    <input type="text" id="name" placeholder="Your Name" required />
+    
+    <input type="text" id="mobile" placeholder="Your 10-Digit Mobile Number" maxlength="10" 
+           oninput="validateMobileInstant(this)" required />
+           
+    <textarea id="address" placeholder="Your Full Address" required></textarea>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <div><label><strong>Order Date *</strong></label><input type="date" id="orderDate" required /></div>
+        <div><label><strong>Delivery Time *</strong></label><input type="time" id="orderTime" required /></div>
+    </div>
+
+    <div class="delivery-options">
+        <label><input type="radio" name="deliveryMethod" value="Home Delivery" checked onclick="updateTotal()"> 🏠 Delivery (₹20)</label>
+        <label><input type="radio" name="deliveryMethod" value="Self Pickup" onclick="updateTotal()"> 🛍️ Pickup</label>
+    </div>
+  </div>
+
+  <h2>Menu</h2>
+  <div class="grid" id="menuGrid"></div>
+
+  <div class="section-white">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin: 0;">Your Order</h2>
+        <button onclick="clearCart()" style="background: #444; font-size: 12px; padding: 5px 10px; margin: 0;">Clear All</button>
+    </div>
+    <div id="orderList" style="margin-top: 15px;">
+        <div class="empty-msg">🛒 Your bucket is empty. Add some delicious Wazwan!</div>
+    </div>
+    <div style="border-top: 1px solid #ddd; margin-top: 15px; padding-top: 10px;">
+        <p>Subtotal: <span id="totalPrice" style="float:right; font-weight:bold;">₹0</span></p>
+        <p>Delivery: <span id="deliveryChargeDisplay" style="float:right; font-weight:bold;">₹20</span></p>
+        <h3 style="color:#ea580c;">Grand Total: <span id="grandTotal" style="float:right;">₹0</span></h3>
+        <h3 style="color:#16a34a; border-top: 1px dashed #ccc; padding-top: 10px;">Advance (30%): <span id="advanceAmount" style="float:right;">₹0</span></h3>
+    </div>
+    <button onclick="sendFullOrder()" style="background:#16a34a; width:100%; font-size:16px;">
+        <i data-lucide="send" style="vertical-align: middle; width:18px;"></i> Confirm Order via WhatsApp
+    </button>
+  </div>
+
+  <div class="section-white" style="text-align:center;">
+    <h2 style="color:#16a34a;">Payment Details</h2>
+    <p><strong>UPI ID:</strong> ovaisemushtaq@okaxis</p>
+    <p><strong>Bank:</strong> J&K Bank Sopore | <strong>A/C:</strong> 0347040800004662</p>
+    <p><strong>IFSC Code:</strong> JAKA0TRUTE</p>
+  </div>
+</div>
+
+<footer><p>© 2026 SALAM E WAZWAN</p></footer>
+
+<script>
+lucide.createIcons();
+const phoneNumber = "916005715105";
+let cart = [];
+
+window.onload = function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('orderDate').value = today;
+    document.getElementById('orderDate').min = today;
+};
+
+// INSTANT MOBILE VALIDATION: Shows alert immediately if alphabet is typed
+function validateMobileInstant(input) {
+    if (/[^0-9]/.test(input.value)) {
+        alert("❌ Please enter valid 10-digit mobile number only (Numbers Only).");
+        input.value = input.value.replace(/[^0-9]/g, '');
+    }
+}
+
+function toggleAdminPanel() {
+    const p = document.getElementById('adminPanel');
+    p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+}
+
+function openAdminPanel() {
+  if (document.getElementById("adminPassword").value === window.currentAdminPIN) {
+    document.getElementById("loginSection").style.display = "none";
+    document.getElementById("adminControls").style.display = "block";
+    alert("🔓 Admin Panel Unlocked");
+  } else { alert("❌ Wrong password."); }
+}
+
+function handleLogout() {
+  document.getElementById("loginSection").style.display = "block";
+  document.getElementById("adminControls").style.display = "none";
+  document.getElementById("adminPassword").value = "";
+}
+
+function addToCart(name, price, isAvail, qtyId) {
+  const qtyInput = document.getElementById(qtyId);
+  const qty = parseInt(qtyInput.value);
+  const date = document.getElementById('orderDate').value;
+  const today = new Date().toISOString().split('T')[0];
+
+  if (!qty || qty <= 0) { alert("Enter quantity"); return; }
+  if (!isAvail && date === today) { alert("⚠️ Pre-order items require a future date selection."); return; }
+
+  const existingItemIndex = cart.findIndex(item => item.name === name);
+  
+  if (existingItemIndex > -1) {
+    cart[existingItemIndex].qty += qty;
+  } else {
+    cart.push({ name, price, qty });
+  }
+
+  renderCart();
+  updateTotal();
+  alert(`✅ Added ${qty} x ${name} to your bucket!`);
+  qtyInput.value = 1;
+}
+
+function renderCart() {
+  const list = document.getElementById("orderList");
+  list.innerHTML = "";
+  if (cart.length === 0) {
+    list.innerHTML = '<div class="empty-msg">🛒 Your bucket is empty. Add some delicious Wazwan!</div>';
+    return;
+  }
+  cart.forEach((item) => {
+    const row = document.createElement("div");
+    row.style = "display:flex; justify-content:space-between; padding: 8px 0; border-bottom: 1px inset #eee;";
+    row.innerHTML = `<span>${item.name} x ${item.qty}</span><span>₹${item.price * item.qty}</span>`;
+    list.appendChild(row);
+  });
+}
+
+function clearCart() {
+  if (cart.length === 0) return;
+  if (confirm("Clear all items from your order?")) {
+    cart = [];
+    renderCart();
+    updateTotal();
+  }
+}
+
+function updateTotal() {
+  let sub = 0;
+  cart.forEach(i => sub += (i.price * i.qty));
+  const method = document.querySelector('input[name="deliveryMethod"]:checked').value;
+  const del = (method === "Home Delivery" && sub > 0) ? 20 : 0;
+  const grand = sub + del;
+  const advance = Math.round(grand * 0.3);
+
+  document.getElementById("totalPrice").innerText = "₹" + sub;
+  document.getElementById("deliveryChargeDisplay").innerText = "₹" + del;
+  document.getElementById("grandTotal").innerText = "₹" + grand;
+  document.getElementById("advanceAmount").innerText = "₹" + advance;
+}
+
+// FINAL VALIDATION ON CLICKING WHATSAPP
+function sendFullOrder() {
+  const name = document.getElementById("name").value.trim();
+  const address = document.getElementById("address").value.trim();
+  const mobileInput = document.getElementById("mobile").value.trim();
+  const date = document.getElementById("orderDate").value;
+  const time = document.getElementById("orderTime").value;
+  const method = document.querySelector('input[name="deliveryMethod"]:checked').value;
+
+  // CHECK IF FIELDS ARE EMPTY
+  if (!name || !address || !mobileInput || !date || !time || cart.length === 0) { 
+    alert("Please complete all details and add items to your bucket."); 
+    return; 
+  }
+
+  // CHECK MOBILE LENGTH
+  if (mobileInput.length !== 10) {
+    alert("❌ Mobile number must be exactly 10 digits.");
+    return;
+  }
+
+  let items = "";
+  cart.forEach(i => items += `• ${i.name} x ${i.qty} (₹${i.price * i.qty})\n`);
+  const total = document.getElementById("grandTotal").innerText;
+  const adv = document.getElementById("advanceAmount").innerText;
+  
+  let msg = `*SALAM E WAZWAN ORDER*\n`;
+  msg += `--------------------------\n`;
+  msg += `*Name:* ${name}\n`;
+  msg += `*Mobile:* ${mobileInput}\n`;
+  msg += `*Address:* ${address}\n`;
+  msg += `*Date:* ${date}\n`;
+  msg += `*Time:* ${time}\n`;
+  msg += `*Method:* ${method}\n\n`;
+  msg += `*Items:*\n${items}\n`;
+  msg += `*Total Amount:* ${total}\n`;
+  msg += `*Advance Required (30%):* ${adv}\n`;
+  msg += `--------------------------\n`;
+  msg += `_Please send advance screenshot to confirm order._`;
+
+  window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(msg)}`);
+}
+</script>
+</body>
+</html>
